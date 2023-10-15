@@ -5,6 +5,8 @@ from Getting_Current_Ratings import time_sensitive_elo_dict, home_advantage_elo_
 import random
 import statistics
 
+print("Home Advantage:", home_advantage_elo_boost)
+print()
 # Convert the "Date" column to datetime format
 df['Date'] = pd.to_datetime(df['Date'])
 
