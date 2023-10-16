@@ -248,4 +248,4 @@ world_cup_sim_summary_df[percentage_cols] = (world_cup_sim_summary_df[percentage
 world_cup_sim_summary_df[["Avg Pos", "Avg Pts"]] = round(world_cup_sim_summary_df[["Avg Pos", "Avg Pts"]], 1)
 world_cup_sim_summary_df["Avg NRR"] = round(world_cup_sim_summary_df["Avg NRR"], 2)
 
-print(world_cup_sim_summary_df)
+print("    ", world_cup_sim_summary_df)
