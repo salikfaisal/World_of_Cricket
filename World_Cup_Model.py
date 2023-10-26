@@ -214,7 +214,7 @@ for sim in range(10000):
     else:
         wc_sims_table[team_2][9] += 1
     # time updates
-    if (sim + 1) % 10 == 0:
+    if (sim + 1) % 100 == 0:
         print("Simulations", (sim + 1) / 100, "% complete")
         current_time = time.time()
         expected_total_time = (current_time - start_time) / ((sim + 1) / 10000)

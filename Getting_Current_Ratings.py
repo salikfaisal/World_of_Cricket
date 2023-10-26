@@ -206,19 +206,7 @@ for idx, match_facts in df.iterrows():
         grounds_tilt_dict[ground][0] = match_weight * avg_rr + (1 - match_weight) * grounds_tilt_dict[ground][0]
     # updates the tilt (bowling or batting strength) of both teams
     ground_adj_rr = grounds_tilt_dict[ground][0]
-    if bf in teams_tilt_dict and bs in teams_tilt_dict:
-        bf_expected_rr = statistics.NormalDist(ground_adj_rr, 0.9386).inv_cdf(teams_tilt_dict[bf][0])
-        bs_expected_rr = statistics.NormalDist(ground_adj_rr, 0.9386).inv_cdf(teams_tilt_dict[bs][0])
-        expected_rr = (ground_adj_rr + bf_expected_rr + bs_expected_rr) / 3
-    elif bf in teams_tilt_dict:
-        bf_expected_rr = statistics.NormalDist(ground_adj_rr, 0.9386).inv_cdf(teams_tilt_dict[bf][0])
-        expected_rr = (ground_adj_rr + bf_expected_rr) / 2
-    elif bs in teams_tilt_dict:
-        bs_expected_rr = statistics.NormalDist(ground_adj_rr, 0.9386).inv_cdf(teams_tilt_dict[bs][0])
-        expected_rr = (ground_adj_rr + bs_expected_rr) / 2
-    else:
-        expected_rr = ground_adj_rr
-    match_runs_percentile = statistics.NormalDist(mu=expected_rr, sigma=0.9386).cdf(avg_rr)
+    match_runs_percentile = statistics.NormalDist(mu=ground_adj_rr, sigma=0.9386).cdf(avg_rr)
     if bf not in teams_tilt_dict:
         teams_tilt_dict.update({bf: [match_runs_percentile, 1]})
     else:
@@ -242,7 +230,20 @@ for idx, match_facts in df.iterrows():
             elo_line_graph_dict[team].append(elo_dict[team])
             bat_first_elo_line_graph[team].append(bat_first_elo_dict[team])
             teams_tilt_line_graph[team].append(teams_tilt_dict[team][0])
-
+    if idx % 100 == 0:
+        print(match_facts['Date'])
+        print()
+        time_sensitive_elo_dict = dict(sorted(time_sensitive_elo_dict.items(), key=lambda item: item[1], reverse=True))
+        elo_ratings_df = pd.DataFrame(list(time_sensitive_elo_dict.items()), columns=["Team", "Rating"])
+        rank = 0
+        ranked_bf_elo_dict = {}
+        ranked_batting_tilt_dict = {}
+        for team, rating in time_sensitive_elo_dict.items():
+            rank += 1
+            ranked_bf_elo_dict.update({team: bat_first_elo_dict[team]})
+            ranked_batting_tilt_dict.update({team: teams_tilt_dict[team][0]})
+            print(rank, team, rating, bat_first_elo_dict[team], teams_tilt_dict[team][0])
+        print()
 print("Current Ratings:")
 print(match_facts['Date'])
 print()
