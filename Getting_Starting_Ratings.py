@@ -3,9 +3,16 @@ import random
 import time
 import statistics
 import math
+from scipy import stats
 
 # imports data from all ODIs
 df = pd.read_csv("ODI_Matches_Data.csv")
+# gets the net run rate for a projected 50 overs score
+df["Adj RR Margin"] = abs(df["Team 1 Projected 50 Overs Score"] - df["Team 2 Projected 50 Overs Score"]) / 50
+# gets rid of matches with no result
+df = df[df["Winner"] != 'No Result']
+# finds the percentile for the 'BF Adj NRR' column
+df['RR Margin Percentile'] = df["Adj RR Margin"].rank(pct=True)
 
 # Convert the "Date" column to datetime format
 df['Date'] = pd.to_datetime(df['Date'])
@@ -93,12 +100,15 @@ for simulation in range(10000):
         # calculates the odds of the team batting first winning the match
         bf_win_expectancy = 1 / (10 ** ((bs_pre_match_elo - bf_pre_match_elo) / 400) + 1)
         # finds the adjusted run rate and finds the value to be used in elo points exchanges
-        bf_adjusted_run_rate = match_facts["Team 1 Adjusted Run Rate"]
-        bs_adjusted_run_rate = match_facts["Team 2 Adjusted Run Rate"]
+        # 1.64 is the standard deviation of NRR for all ODI matches
+        bf_adjusted_run_rate = match_facts["Team 1 Projected 50 Overs Score"] / 50
+        bs_adjusted_run_rate = match_facts["Team 2 Projected 50 Overs Score"] / 50
         bf_nrr = bf_adjusted_run_rate - bs_adjusted_run_rate
-        percentile = statistics.NormalDist(mu=0, sigma=0.534).cdf(abs(bf_nrr))
-        if percentile >= 1:
+        percentile = match_facts['RR Margin Percentile']
+        if percentile > 0.9999999999998945:
             percentile = 0.9999999999998945
+        elif percentile < 0.0000000000001055:
+            percentile = 0.0000000000001055
         z_score = statistics.NormalDist().inv_cdf(percentile)
         nrr_factor = 1.3 * z_score
         nrr_margin_increase = (0.75 + (nrr_factor - 3) / 8)

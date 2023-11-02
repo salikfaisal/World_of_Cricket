@@ -38,8 +38,8 @@ def match_simulation(team_1, team_2, team_1_elo, team_2_elo, ground_bf_elo_boost
     else:
         team_2_elo += bat_first_elo_dict[team_2] - bat_first_elo_dict[team_1] + ground_bf_elo_boost
     team_1_wl = 1 / (10 ** ((team_2_elo - team_1_elo) / 400) + 1)
-    team_1_margin_mean = statistics.NormalDist(0, 0.534).inv_cdf(team_1_wl)
-    team_1_nrr = statistics.NormalDist(team_1_margin_mean, 0.534).inv_cdf(random.random())
+    team_1_margin_mean = statistics.NormalDist(0, 1.64).inv_cdf(team_1_wl)
+    team_1_nrr = statistics.NormalDist(team_1_margin_mean, 1.64).inv_cdf(random.random())
     # we use 285 as the team 1's score. We can use any value but 285 is around the average for an ODI innings in the
     # modern age
     if batting_first == 0:

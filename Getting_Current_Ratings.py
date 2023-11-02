@@ -5,20 +5,30 @@ import time
 import statistics
 import matplotlib.pyplot as plt
 
+# gets the net run rate for a projected 50 overs score
+df["Adj RR Margin"] = abs(df["Team 1 Projected 50 Overs Score"] - df["Team 2 Projected 50 Overs Score"]) / 50
+# gets rid of matches with no result
+df = df[df["Winner"] != 'No Result']
+# finds the percentile for the 'BF Adj NRR' column
+df['RR Margin Percentile'] = df["Adj RR Margin"].rank(pct=True)
+
 # these are a list of teams to ignore
 teams_to_ignore = ['ICC World XI', 'Asia XI', 'Africa XI']
 
 # this is used to calculate the elo ratings for each ODI side over time
-elo_dict = {'England': 1745, 'Australia': 1784, 'New Zealand': 1876, 'Pakistan': 1594, 'West Indies': 1772,
-            'India': 1775, 'East Africa': 1087, 'Sri Lanka': 1850, 'Canada': 1420, 'Zimbabwe': 1645, 'Bangladesh': 1718,
-            'South Africa': 1714, 'United Arab Emirates': 1450, 'Netherlands': 1385, 'Kenya': 1534, 'Scotland': 1334,
-            'Namibia': 1340, 'Hong Kong': 1273, 'United States of America': 1356, 'Bermuda': 1260, 'Ireland': 1611,
-            'Afghanistan': 1415, 'Papua New Guinea': 1188, 'Nepal': 1490, 'Oman': 1233, 'Jersey': 1366}
+elo_dict = {'England': 1734, 'Australia': 1818, 'New Zealand': 1684, 'Pakistan': 1719, 'West Indies': 1748,
+            'India': 1765, 'East Africa': 1165, 'Sri Lanka': 1599, 'Canada': 1422, 'Zimbabwe': 1751, 'Bangladesh': 1633,
+            'South Africa': 1710, 'United Arab Emirates': 1323, 'Netherlands': 1490, 'Kenya': 1614, 'Scotland': 1466,
+            'Namibia': 1349, 'Hong Kong': 1302, 'United States of America': 1352, 'Bermuda': 1409, 'Ireland': 1641,
+            'Afghanistan': 1657, 'Papua New Guinea': 1226, 'Nepal': 1451, 'Oman': 1562, 'Jersey': 1415}
+
+
+
 
 # in the form of {ground, city, country: [ground, city, country, 1st innings adj rr, 2nd innings adjusted rr,
-#                                         total matches]}
+#                                         total matches, bf_win, bf_lose]}
 ground_stats_dict = {}
-home_advantage_elo_boost = 166
+home_advantage_elo_boost = 220
 start_time = time.time()
 for idx, match_facts in df.iterrows():
     winner = match_facts["Winner"]
@@ -56,12 +66,15 @@ for idx, match_facts in df.iterrows():
     # calculates the odds of the team batting first winning the match
     bf_win_expectancy = 1 / (10 ** ((bs_pre_match_elo - bf_pre_match_elo) / 400) + 1)
     # finds the adjusted run rate and finds the value to be used in elo points exchanges
-    bf_adjusted_run_rate = match_facts["Team 1 Adjusted Run Rate"]
-    bs_adjusted_run_rate = match_facts["Team 2 Adjusted Run Rate"]
+    # 1.64 is the standard deviation of NRR for all ODI matches
+    bf_adjusted_run_rate = match_facts["Team 1 Projected 50 Overs Score"] / 50
+    bs_adjusted_run_rate = match_facts["Team 2 Projected 50 Overs Score"] / 50
     bf_nrr = bf_adjusted_run_rate - bs_adjusted_run_rate
-    percentile = statistics.NormalDist(mu=0, sigma=0.534).cdf(abs(bf_nrr))
-    if percentile >= 1:
+    percentile = match_facts['RR Margin Percentile']
+    if percentile > 0.9999999999998945:
         percentile = 0.9999999999998945
+    elif percentile < 0.0000000000001055:
+        percentile = 0.0000000000001055
     z_score = statistics.NormalDist().inv_cdf(percentile)
     nrr_factor = 1.3 * z_score
     nrr_margin_increase = (0.75 + (nrr_factor - 3) / 8)
@@ -81,7 +94,7 @@ for idx, match_facts in df.iterrows():
         home_advantage_elo_boost -= 0.075 * bf_change_in_rating
     # updates the ground information
     if ground not in ground_stats_dict:
-        ground_stats_dict.update({ground: [ground_name, city, host_country, 0, 0, 0, 0]})
+        ground_stats_dict.update({ground: [ground_name, city, host_country, 0, 0, 0, 0, 0, 0]})
     ground_stats_dict[ground][3] += 0.075 * bf_change_in_rating
     ground_total_matches = ground_stats_dict[ground][6]
     if ground_total_matches == 0:
@@ -92,14 +105,21 @@ for idx, match_facts in df.iterrows():
         ground_stats_dict[ground][4] = bf_adjusted_run_rate * match_weight + ground_stats_dict[ground][4] * (1 - match_weight)
         ground_stats_dict[ground][5] = bs_adjusted_run_rate * match_weight + ground_stats_dict[ground][5] * (1 - match_weight)
     ground_stats_dict[ground][6] += 1
+    if winner == bf:
+        ground_stats_dict[ground][7] += 1
+    else:
+        ground_stats_dict[ground][8] += 1
 
 # creates a data frame on ground statistics
 ground_stats_df = pd.DataFrame(columns=["Ground Name", "City", "Country", "Batting First Elo Boost",
-                                        "Adj 1st Innings Score", "Adj 2nd Innings Score", "Matches Completed"],
+                                        "Adj 1st Innings Score", "Adj 2nd Innings Score", "Matches Completed",
+                                        "Batting First Wins", "Batting Second Wins"],
                                data=ground_stats_dict.values())
 ground_stats_df["Adj 1st Innings Score"] = ground_stats_df["Adj 1st Innings Score"] * 50
 ground_stats_df["Adj 2nd Innings Score"] = ground_stats_df["Adj 2nd Innings Score"] * 50
 ground_stats_df.sort_values(by='Matches Completed', ascending=False, inplace=True)
+ground_stats_df["Batting First Win %"] = ground_stats_df["Batting First Wins"] / ground_stats_df["Matches Completed"]
+ground_stats_df["Batting Second Win %"] = ground_stats_df["Batting Second Wins"] / ground_stats_df["Matches Completed"]
 ground_stats_df.to_csv("ODI Grounds.csv", index=False, header=True)
 end_time = time.time()
 print("Elo Ratings Determined from Matches in", round((end_time - start_time) / 60, 2), "Minutes")
@@ -121,7 +141,7 @@ for team in teams_of_interest:
     elo_line_graph_dict.update({team: []})
     bat_first_elo_line_graph.update({team: []})
     teams_tilt_line_graph.update({team: []})
-home_advantage_elo_boost = 166
+home_advantage_elo_boost = 220
 start_time = time.time()
 for idx, match_facts in df.iterrows():
     winner = match_facts["Winner"]
@@ -168,12 +188,15 @@ for idx, match_facts in df.iterrows():
     # calculates the odds of the team batting first winning the match
     bf_win_expectancy = 1 / (10 ** ((bs_pre_match_elo - bf_pre_match_elo) / 400) + 1)
     # finds the adjusted run rate and finds the value to be used in elo points exchanges
-    bf_adjusted_run_rate = match_facts["Team 1 Adjusted Run Rate"]
-    bs_adjusted_run_rate = match_facts["Team 2 Adjusted Run Rate"]
+    # 1.64 is the standard deviation of NRR for all ODI matches
+    bf_adjusted_run_rate = match_facts["Team 1 Projected 50 Overs Score"] / 50
+    bs_adjusted_run_rate = match_facts["Team 2 Projected 50 Overs Score"] / 50
     bf_nrr = bf_adjusted_run_rate - bs_adjusted_run_rate
-    percentile = statistics.NormalDist(mu=0, sigma=0.534).cdf(abs(bf_nrr))
-    if percentile >= 1:
+    percentile = match_facts['RR Margin Percentile']
+    if percentile > 0.9999999999998945:
         percentile = 0.9999999999998945
+    elif percentile < 0.0000000000001055:
+        percentile = 0.0000000000001055
     z_score = statistics.NormalDist().inv_cdf(percentile)
     nrr_factor = 1.3 * z_score
     nrr_margin_increase = (0.75 + (nrr_factor - 3) / 8)

@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import time
+from DLS_Projected_Score import score_projector
 
 # reads dataset of ODI matches
 odi_matches_df = pd.read_csv("ODI_Matches_Data.csv")
@@ -10,7 +11,7 @@ previous_matches = odi_matches_df["Match ID"].tolist()
 num_of_prev_matches = len(previous_matches)
 
 # list of years since the ODI Format was introduced to International Cricket in 1971
-years = list(range(1971, 2024))
+years = list(range(2023, 2024))
 
 # list of match ids for all ODI Matches
 new_match_ids = []
@@ -59,7 +60,8 @@ bs_wickets = []
 bs_overs = []
 bs_adjusted_run_rate = []
 num_of_new_matches = len(new_match_ids)
-missing_cities = []
+bf_adj_50_over_scores = []
+bs_adj_50_over_scores = []
 
 print("Extracting ODI Match Data")
 start_time = time.time()
@@ -123,49 +125,67 @@ for match_num, match_id in enumerate(new_match_ids):
     if len(innings) > 0:
         for inning_number, inning in enumerate(innings):
             if inning_number == 0:
-                bf_runs.append(int(inning['runs']))
-                bf_wickets.append(int(inning['wickets']))
-                overs_completed = int(inning['balls']) // 6
-                balls_in_last_over = int(inning['balls']) % 6
+                runs = int(inning['runs'])
+                wickets = int(inning['wickets'])
+                bf_runs.append(runs)
+                bf_wickets.append(wickets)
+                balls = int(inning['balls'])
+                overs_completed = balls // 6
+                balls_in_last_over = balls % 6
                 overs = str(overs_completed)
                 if balls_in_last_over != 0:
                     overs += '.' + str(balls_in_last_over)
                 bf_overs.append(overs)
-                if bf_wickets[-1] != 10:
+                if wickets != 10:
                     balls_for_rr = overs_completed * 6 + balls_in_last_over
                 else:
                     balls_for_rr = int(inning['ball_limit'])
                 if balls_for_rr == 0:
                     bf_adjusted_run_rate.append('NA')
+                    bf_adj_50_over_scores.append('NA')
                 else:
-                    bf_adjusted_run_rate.append(bf_runs[-1] / balls_for_rr * 6)
+                    bf_adjusted_run_rate.append(runs / balls_for_rr * 6)
+                    if match_info['rain_rule_name'] != '':
+                        runs = int(innings[1]['target']) - 1
+                        balls_for_rr = int(innings[1]['ball_limit'])
+                    projected_score_50_overs = runs / balls_for_rr * 300
+                    bf_adj_50_over_scores.append(projected_score_50_overs)
             else:
-                bs_runs.append(int(inning['runs']))
-                bs_wickets.append(int(inning['wickets']))
-                overs_completed = int(inning['balls']) // 6
-                balls_in_last_over = int(inning['balls']) % 6
+                runs = int(inning['runs'])
+                wickets = int(inning['wickets'])
+                bs_runs.append(runs)
+                bs_wickets.append(wickets)
+                balls = int(inning['balls'])
+                overs_completed = balls // 6
+                balls_in_last_over = balls % 6
                 overs = str(overs_completed)
                 if balls_in_last_over != 0:
                     overs += '.' + str(balls_in_last_over)
                 bs_overs.append(overs)
-                if bs_wickets[-1] != 10:
+                if wickets != 10:
                     balls_for_rr = int(inning['balls'])
                 else:
                     balls_for_rr = int(inning['ball_limit'])
                 if balls_for_rr == 0:
                     bs_adjusted_run_rate.append('NA')
+                    bs_adj_50_over_scores.append('NA')
                 else:
-                    bs_adjusted_run_rate.append(bs_runs[-1] / balls_for_rr * 6)
+                    bs_adjusted_run_rate.append(runs / balls_for_rr * 6)
+                    projected_score = score_projector(runs, wickets, balls, balls_for_rr)
+                    projected_score_50_overs = projected_score / balls_for_rr * 300
+                    bs_adj_50_over_scores.append(projected_score_50_overs)
     else:
         # this is for matches where a match was abandoned before a ball was bowled
         bf_runs.append(0)
         bf_wickets.append(0)
         bf_overs.append(0)
         bf_adjusted_run_rate.append('NA')
+        bf_adj_50_over_scores.append('NA')
         bs_runs.append(0)
         bs_wickets.append(0)
         bs_overs.append(0)
         bs_adjusted_run_rate.append('NA')
+        bs_adj_50_over_scores.append('NA')
     pct_complete = (match_num + 1) * 100 / num_of_new_matches
     current_time = time.time()
     time_so_far = current_time - start_time
@@ -181,8 +201,9 @@ new_match_ids = new_match_ids[0:new_match_ids_cutoff]
 # Creates a data frame to store all of the data recorded from the matches
 new_data = {'ODI #': match_nums, 'Match ID': new_match_ids, 'Series Type': series, 'Winner': winners, 'Date': dates,
             'Batting First': bf, 'Team 1 Runs': bf_runs, 'Team 1 Wickets': bf_wickets, 'Team 1 Overs': bf_overs,
-            'Team 1 Adjusted Run Rate': bf_adjusted_run_rate, 'Batting Second': bs, 'Team 2 Runs': bs_runs,
-            'Team 2 Wickets': bs_wickets, 'Team 2 Overs': bs_overs, 'Team 2 Adjusted Run Rate': bs_adjusted_run_rate,
+            'Team 1 Adjusted Run Rate': bf_adjusted_run_rate, 'Team 1 Projected 50 Overs Score': bf_adj_50_over_scores,
+            'Batting Second': bs, 'Team 2 Runs': bs_runs, 'Team 2 Wickets': bs_wickets, 'Team 2 Overs': bs_overs,
+            'Team 2 Adjusted Run Rate': bs_adjusted_run_rate, 'Team 2 Projected 50 Overs Score': bs_adj_50_over_scores,
             'Ground': grounds, 'City': cities, 'Country': countries}
 new_odi_matches_df = pd.DataFrame(new_data)
 
