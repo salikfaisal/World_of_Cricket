@@ -144,10 +144,10 @@ for match_num, match_id in enumerate(new_match_ids):
                     bf_adjusted_run_rate.append('NA')
                     bf_adj_50_over_scores.append('NA')
                 else:
-                    bf_adjusted_run_rate.append(runs / balls_for_rr * 6)
                     if match_info['rain_rule_name'] != '':
                         runs = int(innings[1]['target']) - 1
                         balls_for_rr = int(innings[1]['ball_limit'])
+                    bf_adjusted_run_rate.append(runs / balls_for_rr * 6)
                     projected_score_50_overs = runs / balls_for_rr * 300
                     bf_adj_50_over_scores.append(projected_score_50_overs)
             else:
