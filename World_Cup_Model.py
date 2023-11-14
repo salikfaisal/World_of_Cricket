@@ -98,6 +98,14 @@ for match_num, match_facts in wc_2023_matches.iterrows():
     bs_runs = match_facts["Team 2 Runs"]
     bf_adj_overs = bf_runs / bf_adj_rr
     bs_adj_overs = bs_runs / bs_adj_rr
+    # this is to fix the run rate in the match between Pakistan and New Zealand
+    if winner == 'Pakistan' and bf == 'New Zealand':
+        bf_runs = 179
+        bf_adj_overs = 25.5
+    # because England lost 9 wickets and not 10, the original data extraction does not consider England all out.
+    # The last wicket was lost due a batsmen being absent hurt, but the ICC considers England to be all out.
+    elif winner == 'South Africa' and bs == 'England':
+        bs_adj_overs = 50
     # adds the score info to the table
     wc_table[bf][0] += bf_runs
     wc_table[bs][0] += bs_runs
@@ -246,6 +254,7 @@ percentage_cols = ["1st", "2nd", "3rd", "4th", "Make SF", "Make Final", "Win Wor
 world_cup_sim_summary_df[percentage_cols] = (world_cup_sim_summary_df[percentage_cols]).applymap(
     lambda x: f'{x:.0%}')
 world_cup_sim_summary_df[["Avg Pos", "Avg Pts"]] = round(world_cup_sim_summary_df[["Avg Pos", "Avg Pts"]], 1)
-world_cup_sim_summary_df["Avg NRR"] = round(world_cup_sim_summary_df["Avg NRR"], 2)
+world_cup_sim_summary_df["Avg NRR"] = round(world_cup_sim_summary_df["Avg NRR"], 3)
+world_cup_sim_summary_df = world_cup_sim_summary_df[["Team", "Make Final", "Win World Cup"]]
 
 print(world_cup_sim_summary_df)
